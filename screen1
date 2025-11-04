@@ -326,9 +326,14 @@ function displayMinutesList(list) {
   });
 }
 
+/**
+ * HTMLエスケープ処理 (数値にも対応)
+ */
 function escapeHTML(str) {
-  if (typeof str !== 'string') return '';
-  return str.replace(/[&<>"']/g, function(match) {
+  // ★修正点: null, undefined, または number 型を安全に文字列化する
+  var safeStr = String(str || '');
+  
+  return safeStr.replace(/[&<>"']/g, function(match) {
     return {
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[match];
