@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
+            background-color: #f4f4f8; margin: 0; padding: 0; color: #1C1C1E;
+        }
+        .header {
+            background-color: #FFFFFF; padding: 16px 24px; border-bottom: 1px solid #E0E0E0;
+            font-size: 1.2em; font-weight: 600;
+        }
+        .container { max-width: 1000px; margin: 24px auto; padding: 0 24px; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .search-bar { flex-grow: 1; margin-right: 16px; }
+        .search-bar input { width: 100%; padding: 10px 14px; font-size: 1em; border-radius: 8px; border: 1px solid #C6C6C8; }
+        .btn { padding: 10px 16px; font-size: 1em; border-radius: 8px; border: none; cursor: pointer; text-decoration: none; color: #FFFFFF; }
+        .btn-primary { background-color: #34C759; }
+        .list-card { background-color: #FFFFFF; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow: hidden; }
+        .list-card h2 { font-size: 1.1em; padding: 16px 20px; margin: 0; border-bottom: 1px solid #E0E0E0; }
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 16px 20px; text-align: left; border-bottom: 1px solid #F2F2F2; }
+        th { font-size: 0.9em; color: #6D6D72; }
+        td a { color: #007AFF; text-decoration: none; margin-right: 12px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        議事録管理システム (新のざわこども園建設工事)
+    </div>
+
+    <div class="container">
+        <div class="toolbar">
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="🔍 &quot;スリーブ図&quot; などでプロジェクト内を検索...">
+            </div>
+            <a href="?page=edit" class="btn btn-primary">➕ 新規議事録を作成</a>
+        </div>
+
+        <div class="list-card">
+            <h2>▼ 議事録一覧</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>打合せ名</th>
+                            <th>打合せ日</th>
+                            <th>最終編集者</th>
+                            <th>アクション</th>
+                        </tr>
+                    </thead>
+                    <tbody id="minutes-list-body">
+                        <tr><td colspan="4">読み込み中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ページ読み込み時に実行
+         */
+        document.addEventListener("DOMContentLoaded", function() {
+            // 議事録一覧をサーバー(Code.gs)から取得
+            google.script.run.withSuccessHandler(displayMinutesList)
+                             .loadMinutesList();
+        });
+
+        /**
+         * 議事録一覧をテーブルに描画する
+         * @param {Array} list - Code.gsから返された議事録オブジェクトの配列
+         */
+        function displayMinutesList(list) {
+            const tbody = document.getElementById("minutes-list-body");
+            tbody.innerHTML = ""; // 読み込み中... をクリア
+
+            if (!list || list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">議事録はありません。</td></tr>';
+                return;
+            }
+
+            list.forEach(item => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${escapeHTML(item.name)}</td>
+                    <td>${escapeHTML(item.date)}</td>
+                    <td>${escapeHTML(item.editor)}</td>
+                    <td>
+                        <a href="?page=edit&id=${escapeHTML(item.id)}">編集</a>
+                        <a href="#">PDF</a>
+                        <a href="#">Excel</a>
+                    </td>
+                `;
+            });
+        }
+
+        /**
+         * HTMLエスケープ用ヘルパー
+         */
+        function escapeHTML(str) {
+            return str.replace(/[&<>"']/g, function(match) {
+                return {
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                }[match];
+            });
+        }
+    </script>
+</body>
+</html>
