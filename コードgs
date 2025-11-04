@@ -1,6 +1,6 @@
 /**
  * @file Code.gs
- * @description 議事録生成アプリのバックエンド処理 (V8ランタイム不要 修正版)
+ * @description 議事録生成アプリのバックエンド処理 (SPA対応版)
  */
 
 // ==========================================
@@ -13,14 +13,9 @@
  * @returns {HtmlOutput} HTML出力
  */
 function doGet(e) {
-  // screen2.html（編集画面）へのリクエストかどうかを判定
-  if (e.parameter.page === 'edit') {
-    return HtmlService.createHtmlOutputFromFile('screen2.html')
-        .setTitle('議事録 編集');
-  }
-  // デフォルトはscreen1.html（一覧画面）を表示
+  // SPA（シングルページ）として、常にscreen1.htmlだけを返す
   return HtmlService.createHtmlOutputFromFile('screen1.html')
-      .setTitle('議事録一覧');
+    .setTitle('議事録管理システム');
 }
 
 /**
@@ -45,11 +40,11 @@ function include(filename) {
 function processTranscriptWithAI(rawTranscript) {
   try {
     var prompt = createPromptForMinutes(rawTranscript);
-    
-    // モデルIDを指定。性能の高いモデルを推奨
-    var modelId = "gemini-2.5-pro"; 
 
-    // GeminiRaytechの簡易版関数を呼び出し
+    // モデルIDを指定
+    var modelId = "gemini-2.5-flash"; 
+
+    // GeminiRaytechの関数を呼び出し
     var jsonString = GeminiRaytech.generateText(prompt, modelId);
 
     // AIが返すJSON文字列をクリーンアップ (マークダウンの```json ```などを削除)
@@ -57,7 +52,7 @@ function processTranscriptWithAI(rawTranscript) {
 
     // 文字列をJSONオブジェクトにパース
     var structuredData = JSON.parse(cleanedJsonString);
-    
+
     return { status: "success", data: structuredData };
 
   } catch (e) {
@@ -68,7 +63,7 @@ function processTranscriptWithAI(rawTranscript) {
 }
 
 /**
- * Geminiに投げるための詳細なプロンプトを生成する (テンプレートリテラル不使用版)
+ * Geminiに投げるための詳細なプロンプトを生成する
  * @param {string} rawTranscript - 文字起こしテキスト
  * @returns {string} AIへの指示（プロンプト）
  */
@@ -114,7 +109,7 @@ function createPromptForMinutes(rawTranscript) {
     "- 抽出できない項目は空欄 \"\" にしてください。",
     "- JSONオブジェクトのみを出力してください。前後の説明文は不要です。"
   ];
-  
+
   return promptLines.join("\n");
 }
 
