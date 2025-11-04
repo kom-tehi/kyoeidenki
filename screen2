@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>議事録編集 - Excelレイアウト</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
+            background-color: #f4f4f8; margin: 0; padding: 24px; color: #1C1C1E;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .page-header { margin-bottom: 24px; }
+        .btn {
+            padding: 10px 16px; font-size: 1em; border-radius: 8px;
+            border: none; cursor: pointer; text-decoration: none; margin-right: 8px;
+        }
+        .btn-save { background-color: #007AFF; color: #FFFFFF; }
+        .btn-export { background-color: #EFEFF4; color: #007AFF; }
+        .tabs { border-bottom: 2px solid #E0E0E0; margin-bottom: 0; }
+        .tab-button {
+            padding: 12px 18px; font-size: 1em; border: 1px solid #C6C6C8;
+            border-bottom: none; background: #EFEFF4; cursor: pointer;
+            margin-right: 4px; border-radius: 8px 8px 0 0;
+        }
+        .tab-button.active {
+            background: #FFFFFF; border-bottom: 2px solid #FFFFFF;
+            font-weight: 600; color: #007AFF; position: relative; top: 2px;
+        }
+        .excel-sheet {
+            width: 100%; border-collapse: collapse; background-color: #FFFFFF;
+            border: 1px solid #C6C6C8; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .excel-sheet th, .excel-sheet td {
+            border: 1px solid #C6C6C8; padding: 8px; vertical-align: top; font-size: 0.9em;
+        }
+        .header-label {
+            background-color: #F4F8FA; font-weight: 600; padding: 12px 8px;
+            text-align: center; width: 120px;
+        }
+        .header-value { padding: 0; }
+        .header-value input, .header-value textarea {
+            width: 100%; border: none; padding: 12px 8px; box-sizing: border-box;
+            font-family: inherit; font-size: 1em;
+        }
+        .header-value textarea { resize: vertical; min-height: 80px; }
+        .agenda-header {
+            background-color: #F4F8FA; font-weight: 600; padding: 12px 8px;
+            text-align: center; vertical-align: middle;
+        }
+        .main-header th {
+            background-color: #F4F8FA; font-weight: 600; text-align: center;
+            padding: 12px 8px;
+        }
+        .main-content td { padding: 0; }
+        .main-content input, .main-content textarea {
+            width: 100%; border: none; padding: 12px 8px; box-sizing: border-box;
+            font-family: inherit; font-size: 1em; min-height: 80px;
+        }
+        .main-content input.no-column {
+            min-height: 0; text-align: center; font-weight: 600;
+        }
+        .main-content textarea { resize: vertical; }
+        .attachment-cell { text-align: center; vertical-align: middle; }
+        .attachment-cell a { color: #007AFF; text-decoration: none; font-size: 1.2em; }
+        #loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5); z-index: 999;
+            display: none; justify-content: center; align-items: center;
+            color: white; font-size: 1.5em;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+        <p>AIが議事録を生成中です... (最大1分程度)</p>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <a href="?" class="back-link">◀ 議事録一覧に戻る</a>
+            <h2>議事録 [編集モード]</h2>
+            
+            <div>
+                <label for="transcript-upload">文字起こしファイル(.vtt または .txt)をアップロード:</label>
+                <input type="file" id="transcript-upload" accept=".vtt,.txt">
+                <button class="btn btn-primary" id="ai-generate-btn">🤖 AIで自動生成</button>
+            </div>
+            
+            <br>
+            <button class="btn btn-save" id="save-btn">💾 保存 (ダミー)</button>
+            <button class="btn btn-export">⬇️ PDF</button>
+            <button class="btn btn-export">⬇️ Excel</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" data-tab="main">定例打合せ記録</button>
+            <button class="tab-button" data-tab="mechanical">分科会（機械設備）</button>
+            <button class="tab-button" data-tab="electrical">分科会（電気設備）</button>
+        </div>
+
+        <div class="tab-content" id="tab-main">
+            <table class="excel-sheet">
+                <tr>
+                    <td class="header-label" style="width: 10%;">工事名</td>
+                    <td class="header-value" style="width: 40%;"><input type="text" id="header-kouji_mei"></td>
+                    <td class="agenda-header" style="width: 10%;" rowspan="4">議題</td>
+                    <td class="header-value" colspan="3" rowspan="4" style="width: 40%;"><textarea rows="10" id="header-agenda"></textarea></td>
+                </tr>
+                <tr>
+                    <td class="header-label">打合せ日時</td>
+                    <td class="header-value"><input type="text" id="header-date_time"></td>
+                </tr>
+                <tr>
+                    <td class="header-label">打合せ場所</td>
+                    <td class="header-value"><input type="text" id="header-basyo"></td>
+                </tr>
+                <tr>
+                    <td class="header-label">出席者</td>
+                    <td class="header-value"><input type="text" id="header-shusseki"></td>
+                </tr>
+                <tr class="main-header">
+                    <th style="width: 5%;">No.</th>
+                    <th style="width: 30%;">打合せ内容</th>
+                    <th style="width: 10%;">発言者</th>
+                    <th style="width: 35%;">検討結果</th>
+                    <th style="width: 15%;">回答者</th>
+                    <th style="width: 5%;">添付</th>
+                </tr>
+                <tbody id="main-table-body">
+                    <tr class="main-content">
+                        <td><input type="text" class="no-column" value="1" readonly></td>
+                        <td><textarea rows="3"></textarea></td>
+                        <td><input type="text"></td>
+                        <td><textarea rows="3"></textarea></td>
+                        <td><input type="text"></td>
+                        <td class="attachment-cell"><a href="#">➕</a></td>
+                    </tr>
+                </tbody>
+            </table>
+            <button class="add-row-btn" data-target="main-table-body">➕ 行を追加</button>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            document.getElementById("ai-generate-btn").addEventListener("click", handleAIGenerate);
+        });
+
+        /**
+         * VTTファイルパーサー
+         */
+        function parseVTT(vttContent) {
+            var lines = vttContent.split('\n');
+            var transcript = [];
+            for (var i = 0; i < lines.length; i++) {
+                var line = lines[i].trim();
+                if (line === '' || line.startsWith('WEBVTT') || line.includes('-->') || line.startsWith('NOTE')) {
+                    continue;
+                }
+                transcript.push(line);
+            }
+            return transcript.join('\n');
+        }
+
+        /**
+         * AI自動生成ボタンが押されたときの処理
+         */
+        function handleAIGenerate() {
+            var fileInput = document.getElementById("transcript-upload");
+            if (fileInput.files.length === 0) {
+                alert("ファイル(.vtt または .txt)を選択してください。");
+                return;
+            }
+
+            var file = fileInput.files[0];
+            var fileName = file.name.toLowerCase();
+            var reader = new FileReader();
+
+            reader.onload = function(e) {
+                var fileContent = e.target.result;
+                var cleanTranscript = "";
+
+                // ★修正: ファイル拡張子によって処理を分岐
+                if (fileName.endsWith('.vtt')) {
+                    cleanTranscript = parseVTT(fileContent);
+                } else if (fileName.endsWith('.txt')) {
+                    cleanTranscript = fileContent; // .txtの場合はそのまま
+                } else {
+                    alert("サポートされていないファイル形式です。");
+                    return;
+                }
+                
+                if (cleanTranscript.length === 0) {
+                    alert("ファイルから本文を抽出できませんでした。");
+                    return;
+                }
+                
+                // ローディング表示
+                document.getElementById("loading-overlay").style.display = "flex";
+                
+                // サーバー(Code.gs)のAI処理を呼び出す
+                google.script.run.withSuccessHandler(onAIGenerationSuccess)
+                                 .withFailureHandler(onAIGenerationFailure)
+                                 .processTranscriptWithAI(cleanTranscript);
+            };
+
+            reader.readAsText(file);
+        }
+
+        /**
+         * AI生成が成功したときのコールバック
+         */
+        function onAIGenerationSuccess(result) {
+            document.getElementById("loading-overlay").style.display = "none";
+            
+            if (result.status === "success") {
+                populateForm(result.data);
+            } else {
+                alert("AIの処理中にエラーが発生しました:\n" + result.message);
+            }
+        }
+
+        /**
+         * AI生成が失敗したときのコールバック
+         */
+        function onAIGenerationFailure(error) {
+            document.getElementById("loading-overlay").style.display = "none";
+            alert("サーバーとの通信に失敗しました:\n" + error.message);
+        }
+
+        /**
+         * AIが返したJSONデータでフォームを埋める
+         */
+        function populateForm(data) {
+            // ヘッダー
+            document.getElementById("header-kouji_mei").value = data.header.kouji_mei || "";
+            document.getElementById("header-date_time").value = data.header.date_time || "";
+            document.getElementById("header-basyo").value = data.header.basyo || "";
+            document.getElementById("header-shusseki").value = data.header.shusseki || "";
+            document.getElementById("header-agenda").value = (data.agenda || []).join("\n");
+
+            // メインテーブル
+            var mainBody = document.getElementById("main-table-body");
+            mainBody.innerHTML = ""; // 既存の行をクリア
+            
+            if (data.main && data.main.length > 0) {
+                data.main.forEach(function(item) {
+                    var row = mainBody.insertRow();
+                    row.className = "main-content";
+                    row.innerHTML = '<td><input type="text" class="no-column" value="' + (item.no || '') + '" readonly></td>' +
+                                    '<td><textarea rows="3">' + (item.content || '') + '</textarea></td>' +
+                                    '<td><input type="text" value="' + (item.speaker || '') + '"></td>' +
+                                    '<td><textarea rows="3">' + (item.result || '') + '</textarea></td>' +
+                                    '<td><input type="text" value="' + (item.responder || '') + '"></td>' +
+                                    '<td class="attachment-cell"><a href="#">➕</a></td>';
+                });
+            }
+            
+            // TODO: 機械設備・電気設備タブも同様に埋める
+        }
+
+    </script>
+</body>
+</html>
