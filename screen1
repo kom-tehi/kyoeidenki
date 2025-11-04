@@ -426,44 +426,93 @@ function parseVTT(vttContent) {
 // --- 画面2 (編集) の関数 ---
 
 /**
- * AIが返したJSONデータでフォームを埋める
+ * AIが返したJSONデータでフォームを埋める (rowspanなし・6列レイアウト修正版)
  */
 function populateForm(data) {
-  // ヘッダー
+  // 1. ヘッダーの処理 (変更なし)
   document.getElementById("header-kouji_mei").value = data.header.kouji_mei || "";
   document.getElementById("header-date_time").value = data.header.date_time || "";
   document.getElementById("header-basyo").value = data.header.basyo || "";
   document.getElementById("header-shusseki").value = data.header.shusseki || "";
-  document.getElementById("header-agenda").value = (data.agenda || []).join("\n");
 
-  // メインテーブル
+  var agendaText = (data.agenda || []).map(function(item) {
+    return (item.no || '') + ". " + (item.title || '');
+  }).join("\n");
+  document.getElementById("header-agenda").value = agendaText;
+
+  // 2. メインテーブル (main) の処理 (rowspanなしロジックに全面変更)
   var mainBody = document.getElementById("main-table-body");
   mainBody.innerHTML = ""; // 既存の行をクリア
 
-  if (data.main && data.main.length > 0) {
-    data.main.forEach(function(item) {
-      var row = mainBody.insertRow();
-      row.className = "main-content";
-      row.innerHTML = '<td><input type="text" class="no-column" value="' + escapeHTML(item.no || '') + '" readonly></td>' +
-        '<td><textarea rows="3">' + escapeHTML(item.content || '') + '</textarea></td>' +
-        '<td><input type="text" value="' + escapeHTML(item.speaker || '') + '"></td>' +
-        '<td><textarea rows="3">' + escapeHTML(item.result || '') + '</textarea></td>' +
-        '<td><input type="text" value="' + escapeHTML(item.responder || '') + '"></td>' +
-        '<td class="attachment-cell"><a href="#">➕</a></td>';
-    });
-  } else {
-    // データがない場合のデフォルト行
-    mainBody.innerHTML = '<tr class="main-content">' +
-      '<td><input type="text" class="no-column" value="1" readonly></td>' +
-      '<td><textarea rows="3"></textarea></td>' +
-      '<td><input type="text"></td>' +
-      '<td><textarea rows="3"></textarea></td>' +
-      '<td><input type="text"></td>' +
-      '<td class="attachment-cell"><a href="#">➕</a></td>' +
-      '</tr>';
-  }
+  if (data.agenda && data.main) {
+    
+    // 議題 (agenda) リストをループ
+    data.agenda.forEach(function(agendaItem) {
+      
+      // 該当する議題の議論を data.main から抽出
+      var discussions = data.main.filter(function(mainItem) {
+        return mainItem.topic_no === agendaItem.no;
+      });
 
-  // TODO: 機械設備・電気設備タブも同様に埋める
+      // 議論が1件以上ある場合
+      if (discussions.length > 0) {
+        
+        // 議論の数だけ行をループ
+        for (var i = 0; i < discussions.length; i++) {
+          var discussion = discussions[i];
+          var row = mainBody.insertRow();
+          row.className = "main-content";
+          
+          var noCell = "";
+          var contentCell = "";
+
+          // ★修正点: 1行目かどうかで「No.」と「打合せ内容」を書き分ける
+          if (i === 0) {
+            // --- 議題の1行目 ---
+            noCell = escapeHTML(agendaItem.no);
+            // ★修正点: タグを削除し、プレーンテキストとして議題と内容を結合
+            contentCell = '【' + escapeHTML(agendaItem.title) + '】\n' + escapeHTML(discussion.content || '');
+          } else {
+            // --- 議題の2行目以降 ---
+            noCell = ""; // No. は空欄
+            contentCell = escapeHTML(discussion.content || ''); // 議論内容のみ
+          }
+
+          // ★修正点: 6列のレイアウトでHTMLを生成
+          row.innerHTML = 
+            // Col 1: No.
+            '<td><input type="text" class="no-column" value="' + noCell + '" readonly></td>' +
+            
+            // Col 2: 打合せ内容
+            '<td><textarea rows="3">' + contentCell + '</textarea></td>' + 
+            
+            // Col 3: 発言者
+            '<td><input type="text" value="' + escapeHTML(discussion.speaker || '') + '"></td>' +
+            
+            // Col 4: 検討結果
+            '<td><textarea rows="3">' + escapeHTML(discussion.result || '') + '</textarea></td>' +
+            
+            // Col 5: 回答者
+            '<td><input type="text" value="' + escapeHTML(discussion.responder || '') + '"></td>' +
+            
+            // Col 6: 添付
+            '<td class="attachment-cell"><a href="#">➕</a></td>';
+        }
+        
+      } else {
+        // --- 該当する議論が0件の場合 (議題のみ表示) ---
+        var row = mainBody.insertRow();
+        row.className = "main-content";
+        row.innerHTML = 
+          '<td><input type="text" class="no-column" value="' + escapeHTML(agendaItem.no) + '" readonly></td>' +
+          '<td><textarea rows="3">【' + escapeHTML(agendaItem.title) + '】\n（該当の議論なし）</textarea></td>' +
+          '<td><input type="text"></td>' +
+          '<td><textarea rows="3"></textarea></td>' +
+          '<td><input type="text"></td>' +
+          '<td class="attachment-cell"><a href="#">➕</a></td>';
+      }
+    });
+  }
 }
 
 </script>
