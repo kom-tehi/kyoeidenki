@@ -1,112 +1,471 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
-            background-color: #f4f4f8; margin: 0; padding: 0; color: #1C1C1E;
-        }
-        .header {
-            background-color: #FFFFFF; padding: 16px 24px; border-bottom: 1px solid #E0E0E0;
-            font-size: 1.2em; font-weight: 600;
-        }
-        .container { max-width: 1000px; margin: 24px auto; padding: 0 24px; }
-        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .search-bar { flex-grow: 1; margin-right: 16px; }
-        .search-bar input { width: 100%; padding: 10px 14px; font-size: 1em; border-radius: 8px; border: 1px solid #C6C6C8; }
-        .btn { padding: 10px 16px; font-size: 1em; border-radius: 8px; border: none; cursor: pointer; text-decoration: none; color: #FFFFFF; }
-        .btn-primary { background-color: #34C759; }
-        .list-card { background-color: #FFFFFF; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow: hidden; }
-        .list-card h2 { font-size: 1.1em; padding: 16px 20px; margin: 0; border-bottom: 1px solid #E0E0E0; }
-        .table-wrapper { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 16px 20px; text-align: left; border-bottom: 1px solid #F2F2F2; }
-        th { font-size: 0.9em; color: #6D6D72; }
-        td a { color: #007AFF; text-decoration: none; margin-right: 12px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>議事録管理システム</title>
+<style>
+/* --- 共通スタイル --- */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif;
+  background-color: #f4f4f8; margin: 0; padding: 0; color: #1C1C1E;
+}
+.btn {
+  padding: 10px 16px; font-size: 1em; border-radius: 8px;
+  border: none; cursor: pointer; text-decoration: none;
+}
+.btn-primary { background-color: #34C759; color: #FFFFFF; }
+
+/* --- ローディングオーバーレイ (共通) --- */
+#loading-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.7); z-index: 1001;
+  display: none; /* 初期は非表示 */
+  justify-content: center; align-items: center;
+  color: white; font-size: 1.5em;
+}
+
+/* --- ★★★ view-list (一覧画面) のスタイル ★★★ --- */
+#view-list {
+  /* デフォルトで表示 */
+}
+#view-list .header {
+  background-color: #FFFFFF; padding: 16px 24px; border-bottom: 1px solid #E0E0E0;
+  font-size: 1.2em; font-weight: 600;
+}
+#view-list .container { max-width: 1000px; margin: 24px auto; padding: 0 24px; }
+#view-list .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+#view-list .search-bar { flex-grow: 1; margin-right: 16px; }
+#view-list .search-bar input { width: 100%; padding: 10px 14px; font-size: 1em; border-radius: 8px; border: 1px solid #C6C6C8; }
+#view-list .list-card { background-color: #FFFFFF; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow: hidden; }
+#view-list .list-card h2 { font-size: 1.1em; padding: 16px 20px; margin: 0; border-bottom: 1px solid #E0E0E0; }
+#view-list .table-wrapper { overflow-x: auto; }
+#view-list table { width: 100%; border-collapse: collapse; }
+#view-list th, #view-list td { padding: 16px 20px; text-align: left; border-bottom: 1px solid #F2F2F2; }
+#view-list th { font-size: 0.9em; color: #6D6D72; }
+#view-list td a { color: #007AFF; text-decoration: none; margin-right: 12px; }
+
+/* --- モーダル用のCSS (一覧画面) --- */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: none; /* 初期は非表示 */
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+.modal-content {
+  background: #FFFFFF;
+  padding: 24px;
+  border-radius: 12px;
+  width: 500px;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #E0E0E0;
+  padding-bottom: 16px;
+}
+.modal-header h2 { margin: 0; }
+.modal-close-btn {
+  font-size: 1.5em;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+.modal-body {
+  padding-top: 20px;
+}
+.modal-body label {
+  font-weight: 600;
+  display: block;
+  margin-bottom: 8px;
+}
+.modal-body input[type="file"] {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+/* --- ★★★ view-edit (編集画面) のスタイル ★★★ --- */
+#view-edit {
+  display: none; /* 初期は非表示 */
+  padding: 24px;
+}
+#view-edit .container { max-width: 1400px; margin: 0 auto; }
+#view-edit .page-header { margin-bottom: 24px; }
+#view-edit .page-header h2 { margin-top: 16px; }
+#view-edit .back-link { color: #007AFF; text-decoration: none; }
+#view-edit .btn-save { background-color: #007AFF; color: #FFFFFF; }
+#view-edit .btn-export { background-color: #EFEFF4; color: #007AFF; margin-right: 8px; }
+
+/* 編集画面のタブ */
+#view-edit .tabs { border-bottom: 2px solid #E0E0E0; margin-bottom: 0; }
+#view-edit .tab-button {
+  padding: 12px 18px; font-size: 1em; border: 1px solid #C6C6C8;
+  border-bottom: none; background: #EFEFF4; cursor: pointer;
+  margin-right: 4px; border-radius: 8px 8px 0 0;
+}
+#view-edit .tab-button.active {
+  background: #FFFFFF; border-bottom: 2px solid #FFFFFF;
+  font-weight: 600; color: #007AFF; position: relative; top: 2px;
+}
+
+/* 編集画面のExcel風テーブル */
+#view-edit .excel-sheet {
+  width: 100%; border-collapse: collapse; background-color: #FFFFFF;
+  border: 1px solid #C6C6C8; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+#view-edit .excel-sheet th, #view-edit .excel-sheet td {
+  border: 1px solid #C6C6C8; padding: 8px; vertical-align: top; font-size: 0.9em;
+}
+#view-edit .header-label {
+  background-color: #F4F8FA; font-weight: 600; padding: 12px 8px;
+  text-align: center; width: 120px;
+}
+#view-edit .header-value { padding: 0; }
+#view-edit .header-value input, #view-edit .header-value textarea {
+  width: 100%; border: none; padding: 12px 8px; box-sizing: border-box;
+  font-family: inherit; font-size: 1em;
+}
+#view-edit .header-value textarea { resize: vertical; min-height: 80px; }
+#view-edit .agenda-header {
+  background-color: #F4F8FA; font-weight: 600; padding: 12px 8px;
+  text-align: center; vertical-align: middle;
+}
+#view-edit .main-header th {
+  background-color: #F4F8FA; font-weight: 600; text-align: center;
+  padding: 12px 8px;
+}
+#view-edit .main-content td { padding: 0; }
+#view-edit .main-content input, #view-edit .main-content textarea {
+  width: 100%; border: none; padding: 12px 8px; box-sizing: border-box;
+  font-family: inherit; font-size: 1em; min-height: 80px;
+}
+#view-edit .main-content input.no-column {
+  min-height: 0; text-align: center; font-weight: 600;
+}
+#view-edit .main-content textarea { resize: vertical; }
+#view-edit .attachment-cell { text-align: center; vertical-align: middle; }
+#view-edit .attachment-cell a { color: #007AFF; text-decoration: none; font-size: 1.2em; }
+#view-edit .add-row-btn {
+  margin-top: 12px; padding: 8px 12px; background: #EFEFF4; border: 1px solid #C6C6C8;
+  cursor: pointer; border-radius: 8px;
+}
+</style>
 </head>
 <body>
 
-    <div class="header">
-        議事録管理システム (新のざわこども園建設工事)
+<div id="loading-overlay">
+  <p>AIが議事録を生成中です...</p>
+</div>
+
+<div id="view-list">
+  
+  <div class="modal-overlay" id="new-minute-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>新規議事録を作成</h2>
+        <button class="modal-close-btn" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label for="transcript-upload">文字起こしファイル(.vtt または .txt)をアップロード:</label>
+        <input type="file" id="transcript-upload" accept=".vtt,.txt">
+        <button class="btn btn-primary" id="ai-generate-btn">🤖 AIで自動生成</button>
+      </div>
+    </div>
+  </div>
+  
+  <div class="header">
+    議事録管理システム (新のざわこども園建設工事)
+  </div>
+
+  <div class="container">
+    <div class="toolbar">
+      <div class="search-bar">
+        <input type="text" id="search-input" placeholder="🔍 &quot;スリーブ図&quot; などでプロジェクト内を検索...">
+      </div>
+      <button class="btn btn-primary" id="open-modal-btn">➕ 新規議事録を作成</button>
     </div>
 
-    <div class="container">
-        <div class="toolbar">
-            <div class="search-bar">
-                <input type="text" id="search-input" placeholder="🔍 &quot;スリーブ図&quot; などでプロジェクト内を検索...">
-            </div>
-            <a href="?page=edit" class="btn btn-primary">➕ 新規議事録を作成</a>
-        </div>
+    <div class="list-card">
+      <h2>▼ 議事録一覧</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>打合せ名</th>
+              <th>打合せ日</th>
+              <th>最終編集者</th>
+              <th>アクション</th>
+            </tr>
+          </thead>
+          <tbody id="minutes-list-body">
+            </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div><div id="view-edit">
+  <div class="container">
+    <div class="page-header">
+      <a href="#" class="back-link" id="back-to-list-btn">◀ 議事録一覧に戻る</a>
+      <h2>議事録 [編集モード]</h2>
 
-        <div class="list-card">
-            <h2>▼ 議事録一覧</h2>
-            <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>打合せ名</th>
-                            <th>打合せ日</th>
-                            <th>最終編集者</th>
-                            <th>アクション</th>
-                        </tr>
-                    </thead>
-                    <tbody id="minutes-list-body">
-                        <tr><td colspan="4">読み込み中...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+      <br>
+      <button class="btn btn-save" id="save-btn">💾 保存 (ダミー)</button>
+      <button class="btn btn-export">⬇️ PDF</button>
+      <button class="btn btn-export">⬇️ Excel</button>
     </div>
 
-    <script>
-        /**
-         * ページ読み込み時に実行
-         */
-        document.addEventListener("DOMContentLoaded", function() {
-            // 議事録一覧をサーバー(Code.gs)から取得
-            google.script.run.withSuccessHandler(displayMinutesList)
-                             .loadMinutesList();
-        });
+    <div class="tabs">
+      <button class="tab-button active" data-tab="main">定例打合せ記録</button>
+      <button class="tab-button" data-tab="mechanical">分科会（機械設備）</button>
+      <button class="tab-button" data-tab="electrical">分科会（電気設備）</button>
+    </div>
 
-        /**
-         * 議事録一覧をテーブルに描画する
-         * @param {Array} list - Code.gsから返された議事録オブジェクトの配列
-         */
-        function displayMinutesList(list) {
-            const tbody = document.getElementById("minutes-list-body");
-            tbody.innerHTML = ""; // 読み込み中... をクリア
+    <div class="tab-content" id="tab-main">
+      <table class="excel-sheet">
+        <tr>
+          <td class="header-label" style="width: 10%;">工事名</td>
+          <td class="header-value" style="width: 40%;"><input type="text" id="header-kouji_mei"></td>
+          <td class="agenda-header" style="width: 10%;" rowspan="4">議題</td>
+          <td class="header-value" colspan="3" rowspan="4" style="width: 40%;"><textarea rows="10" id="header-agenda"></textarea></td>
+        </tr>
+        <tr>
+          <td class="header-label">打合せ日時</td>
+          <td class="header-value"><input type="text" id="header-date_time"></td>
+        </tr>
+        <tr>
+          <td class="header-label">打合せ場所</td>
+          <td class="header-value"><input type="text" id="header-basyo"></td>
+        </tr>
+        <tr>
+          <td class="header-label">出席者</td>
+          <td class="header-value"><input type="text" id="header-shusseki"></td>
+        </tr>
+        <tr class="main-header">
+          <th style="width: 5%;">No.</th>
+          <th style="width: 30%;">打合せ内容</th>
+          <th style="width: 10%;">発言者</th>
+          <th style="width: 35%;">検討結果</th>
+          <th style="width: 15%;">回答者</th>
+          <th style="width: 5%;">添付</th>
+        </tr>
+        <tbody id="main-table-body">
+          </tbody>
+      </table>
+      <button class="add-row-btn" data-target="main-table-body">➕ 行を追加</button>
+    </div>
+    
+    </div>
+</div><script>
+document.addEventListener("DOMContentLoaded", function() {
+  
+  // --- 画面1 (一覧) の初期化 ---
+  
+  // 一覧をロード
+  google.script.run.withSuccessHandler(displayMinutesList)
+    .loadMinutesList();
 
-            if (!list || list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4">議事録はありません。</td></tr>';
-                return;
-            }
+  // --- モーダル関連のイベントリスナー ---
+  var modal = document.getElementById("new-minute-modal");
+  var loadingOverlay = document.getElementById("loading-overlay");
 
-            list.forEach(item => {
-                const row = tbody.insertRow();
-                row.innerHTML = `
-                    <td>${escapeHTML(item.name)}</td>
-                    <td>${escapeHTML(item.date)}</td>
-                    <td>${escapeHTML(item.editor)}</td>
-                    <td>
-                        <a href="?page=edit&id=${escapeHTML(item.id)}">編集</a>
-                        <a href="#">PDF</a>
-                        <a href="#">Excel</a>
-                    </td>
-                `;
-            });
-        }
+  // 「+新規作成」ボタンでモーダルを開く
+  document.getElementById("open-modal-btn").addEventListener("click", function() {
+    modal.style.display = "flex";
+  });
 
-        /**
-         * HTMLエスケープ用ヘルパー
-         */
-        function escapeHTML(str) {
-            return str.replace(/[&<>"']/g, function(match) {
-                return {
-                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-                }[match];
-            });
-        }
-    </script>
+  // 「×」ボタンでモーダルを閉じる
+  document.getElementById("modal-close-btn").addEventListener("click", function() {
+    modal.style.display = "none";
+  });
+
+  // モーダル背景クリックで閉じる
+  modal.addEventListener("click", function(e) {
+    if (e.target === modal) {
+      modal.style.display = "none";
+    }
+  });
+
+  // 「AIで自動生成」ボタンの処理
+  document.getElementById("ai-generate-btn").addEventListener("click", handleAIGenerate);
+  
+  
+  // --- 画面2 (編集) の初期化 ---
+  
+  // 「一覧に戻る」ボタンの処理
+  document.getElementById("back-to-list-btn").addEventListener("click", function(e) {
+      e.preventDefault(); // aタグのデフォルト動作(リロード)をキャンセル
+      
+      // 画面を切り替える
+      document.getElementById("view-edit").style.display = "none";
+      document.getElementById("view-list").style.display = "block";
+  });
+  
+  // (ダミーの保存ボタンの処理)
+  document.getElementById("save-btn").addEventListener("click", function() {
+    alert("保存処理は現在ダミーです。");
+  });
+
+});
+
+// --- 画面1 (一覧) の関数 ---
+
+function displayMinutesList(list) {
+  var tbody = document.getElementById("minutes-list-body");
+  tbody.innerHTML = "";
+  list.forEach(item => {
+    var row = tbody.insertRow();
+    row.innerHTML = '<td>' + escapeHTML(item.name) + '</td>' +
+    '<td>' + escapeHTML(item.date) + '</td>' +
+    '<td>' + escapeHTML(item.editor) + '</td>' +
+    // TODO: 編集ボタンの href もSPA対応（DOM切り替え）にする
+    '<td><a href="#">編集</a> <a href="#">PDF</a> <a href="#">Excel</a></td>';
+  });
+}
+
+function escapeHTML(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/[&<>"']/g, function(match) {
+    return {
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[match];
+  });
+}
+
+// --- AI生成ロジック (一覧・編集で共通) ---
+
+function handleAIGenerate() {
+  var fileInput = document.getElementById("transcript-upload");
+  if (fileInput.files.length === 0) {
+    alert("ファイル(.vtt または .txt)を選択してください。");
+    return;
+  }
+
+  var file = fileInput.files[0];
+  var fileName = file.name.toLowerCase();
+  var reader = new FileReader();
+
+  reader.onload = function(e) {
+    var fileContent = e.target.result;
+    var cleanTranscript = "";
+
+    if (fileName.endsWith('.vtt')) {
+      cleanTranscript = parseVTT(fileContent);
+    } else if (fileName.endsWith('.txt')) {
+      cleanTranscript = fileContent;
+    } else {
+      alert("サポートされていないファイル形式です。");
+      return;
+    }
+
+    if (cleanTranscript.length === 0) {
+      alert("ファイルから本文を抽出できませんでした。");
+      return;
+    }
+
+    // ローディング表示
+    document.getElementById("loading-overlay").style.display = "flex";
+
+    // サーバー(Code.gs)のAI処理を呼び出す
+    google.script.run.withSuccessHandler(onAIGenerationSuccess)
+      .withFailureHandler(onAIGenerationFailure)
+      .processTranscriptWithAI(cleanTranscript);
+  };
+  reader.readAsText(file);
+}
+
+function onAIGenerationSuccess(result) {
+  document.getElementById("loading-overlay").style.display = "none";
+
+  if (result.status === "success") {
+    try {
+      // 1. フォームにデータを流し込む
+      populateForm(result.data);
+      
+      // 2. モーダルを閉じる
+      document.getElementById("new-minute-modal").style.display = "none";
+      
+      // 3. 画面を切り替える (一覧を隠し、編集を表示)
+      document.getElementById("view-list").style.display = "none";
+      document.getElementById("view-edit").style.display = "block";
+
+    } catch (e) {
+      alert("データの表示に失敗しました: " + e.message);
+    }
+  } else {
+    alert("AIの処理中にエラーが発生しました:\n" + result.message);
+  }
+}
+
+function onAIGenerationFailure(error) {
+  document.getElementById("loading-overlay").style.display = "none";
+  alert("サーバーとの通信に失敗しました:\n" + error.message);
+}
+
+/**
+ * VTTファイルパーサー (タイムスタンプなどを除去)
+ */
+function parseVTT(vttContent) {
+  var lines = vttContent.split('\n');
+  var transcript = [];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    // WEBVTT, タイムスタンプ, NOTE, 空行をスキップ
+    if (line === '' || line.startsWith('WEBVTT') || line.includes('-->') || line.startsWith('NOTE')) {
+      continue;
+    }
+    transcript.push(line);
+  }
+  return transcript.join('\n'); // 本文だけを結合して返す
+}
+
+
+// --- 画面2 (編集) の関数 ---
+
+/**
+ * AIが返したJSONデータでフォームを埋める
+ */
+function populateForm(data) {
+  // ヘッダー
+  document.getElementById("header-kouji_mei").value = data.header.kouji_mei || "";
+  document.getElementById("header-date_time").value = data.header.date_time || "";
+  document.getElementById("header-basyo").value = data.header.basyo || "";
+  document.getElementById("header-shusseki").value = data.header.shusseki || "";
+  document.getElementById("header-agenda").value = (data.agenda || []).join("\n");
+
+  // メインテーブル
+  var mainBody = document.getElementById("main-table-body");
+  mainBody.innerHTML = ""; // 既存の行をクリア
+
+  if (data.main && data.main.length > 0) {
+    data.main.forEach(function(item) {
+      var row = mainBody.insertRow();
+      row.className = "main-content";
+      row.innerHTML = '<td><input type="text" class="no-column" value="' + escapeHTML(item.no || '') + '" readonly></td>' +
+        '<td><textarea rows="3">' + escapeHTML(item.content || '') + '</textarea></td>' +
+        '<td><input type="text" value="' + escapeHTML(item.speaker || '') + '"></td>' +
+        '<td><textarea rows="3">' + escapeHTML(item.result || '') + '</textarea></td>' +
+        '<td><input type="text" value="' + escapeHTML(item.responder || '') + '"></td>' +
+        '<td class="attachment-cell"><a href="#">➕</a></td>';
+    });
+  } else {
+    // データがない場合のデフォルト行
+    mainBody.innerHTML = '<tr class="main-content">' +
+      '<td><input type="text" class="no-column" value="1" readonly></td>' +
+      '<td><textarea rows="3"></textarea></td>' +
+      '<td><input type="text"></td>' +
+      '<td><textarea rows="3"></textarea></td>' +
+      '<td><input type="text"></td>' +
+      '<td class="attachment-cell"><a href="#">➕</a></td>' +
+      '</tr>';
+  }
+
+  // TODO: 機械設備・電気設備タブも同様に埋める
+}
+
+</script>
 </body>
 </html>
