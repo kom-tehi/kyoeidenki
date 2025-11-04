@@ -1,0 +1,158 @@
+/**
+ * @file Code.gs
+ * @description 議事録生成アプリのバックエンド処理 (V8ランタイム不要 修正版)
+ */
+
+// ==========================================
+// 1. Webアプリのホスティング
+// ==========================================
+
+/**
+ * WebアプリのGETリクエストを処理する
+ * @param {object} e - イベントオブジェクト
+ * @returns {HtmlOutput} HTML出力
+ */
+function doGet(e) {
+  // screen2.html（編集画面）へのリクエストかどうかを判定
+  if (e.parameter.page === 'edit') {
+    return HtmlService.createHtmlOutputFromFile('screen2.html')
+        .setTitle('議事録 編集');
+  }
+  // デフォルトはscreen1.html（一覧画面）を表示
+  return HtmlService.createHtmlOutputFromFile('screen1.html')
+      .setTitle('議事録一覧');
+}
+
+/**
+ * 別のHTMLファイルをインクルードするためのヘルパー関数
+ * @param {string} filename - インクルードするHTMLファイル名
+ * @returns {string} ファイルの内容
+ */
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+
+// ==========================================
+// 2. AIによる議事録生成（GeminiRaytech）
+// ==========================================
+
+/**
+ * フロントエンドから文字起こしテキストを受け取り、AIで処理して構造化データを返す
+ * @param {string} rawTranscript - ユーザーがアップロードした文字起こしテキスト
+ * @returns {object} AIが生成した議事録データ（JSON形式）
+ */
+function processTranscriptWithAI(rawTranscript) {
+  try {
+    var prompt = createPromptForMinutes(rawTranscript);
+    
+    // モデルIDを指定。性能の高いモデルを推奨
+    var modelId = "gemini-2.5-pro"; 
+
+    // GeminiRaytechの簡易版関数を呼び出し
+    var jsonString = GeminiRaytech.generateText(prompt, modelId);
+
+    // AIが返すJSON文字列をクリーンアップ (マークダウンの```json ```などを削除)
+    var cleanedJsonString = jsonString.replace(/```json\n|```/g, "").trim();
+
+    // 文字列をJSONオブジェクトにパース
+    var structuredData = JSON.parse(cleanedJsonString);
+    
+    return { status: "success", data: structuredData };
+
+  } catch (e) {
+    Logger.log(e);
+    // エラーの場合もフロントエンドに返す
+    return { status: "error", message: e.message };
+  }
+}
+
+/**
+ * Geminiに投げるための詳細なプロンプトを生成する (テンプレートリテラル不使用版)
+ * @param {string} rawTranscript - 文字起こしテキスト
+ * @returns {string} AIへの指示（プロンプト）
+ */
+function createPromptForMinutes(rawTranscript) {
+  var promptLines = [
+    "あなたは建設工事の議事録作成アシスタントです。",
+    "以下の「入力テキスト」（会議の文字起こし）を読み取り、",
+    "指定された「出力フォーマット」のJSON形式で議事録を生成してください。",
+    "",
+    "# 入力テキスト",
+    "\"\"\"",
+    rawTranscript,
+    "\"\"\"",
+    "",
+    "# 出力フォーマット (JSON)",
+    "{",
+    "  \"header\": {",
+    "    \"kouji_mei\": \"（工事名を抽出）\",",
+    "    \"date_time\": \"（打合せ日時を抽出）\",",
+    "    \"basyo\": \"（打合せ場所を抽出）\",",
+    "    \"shusseki\": \"（出席者情報を抽出）\"",
+    "  },",
+    "  \"agenda\": [",
+    "    \"1. （議題1）\",",
+    "    \"2. （議題2）\"",
+    "  ],",
+    "  \"main\": [",
+    "    { \"no\": 1, \"content\": \"（打合せ内容）\", \"speaker\": \"（発言者）\", \"result\": \"（検討結果）\", \"responder\": \"（回答者）\" }",
+    "  ],",
+    "  \"mechanical\": [",
+    "    { \"no\": 1, \"content\": \"（機械設備の打合せ内容）\", \"speaker\": \"（発信者）\", \"result\": \"（検討結果）\", \"responder\": \"（回答者）\" }",
+    "  ],",
+    "  \"electrical\": [",
+    "    { \"no\": 1, \"content\": \"（電気設備の打合せ内容）\", \"speaker\": \"（発信者）\", \"result\": \"（検討結果）\", \"responder\": \"（回答者）\" }",
+    "  ]",
+    "}",
+    "",
+    "# 指示",
+    "- 「main」の「no」は1から始まる連番にしてください。",
+    "- 議題は「agenda」配列に文字列としてリストアップしてください。",
+    "- 会話内容が「機械設備」「電気設備」に関するものであれば、それぞれ「mechanical」「electrical」の配列に分類してください。",
+    "- それ以外の議題は「main」配列に分類してください。",
+    "- 抽出できない項目は空欄 \"\" にしてください。",
+    "- JSONオブジェクトのみを出力してください。前後の説明文は不要です。"
+  ];
+  
+  return promptLines.join("\n");
+}
+
+
+// ==========================================
+// 3. データベース（Googleスプレッドシート）連携 (ダミー)
+// ==========================================
+
+/**
+ * [ダミー] 議事録一覧を返す
+ */
+function loadMinutesList() {
+  // 本来はGoogleスプレッドシートなどから読み込む
+  return [
+    { id: "009", name: "第9回定例打合せ", date: "2025/09/18", editor: "田中" },
+    { id: "008", name: "第8回定例打合せ", date: "2025/09/05", editor: "鈴木" },
+    { id: "007", name: "第7回定例打合せ", date: "2025/08/22", editor: "田中" },
+  ];
+}
+
+/**
+ * [ダミー] 議事録データを保存する
+ * @param {object} minuteData - フロントエンドから送られてくる議事録データ
+ */
+function saveMinuteData(minuteData) {
+  // 本来はGoogleスプレッドシートに書き込む
+  Logger.log("以下のデータが保存されました:");
+  Logger.log(JSON.stringify(minuteData));
+  return { status: "success", id: minuteData.id || "new_id_123" };
+}
+
+/**
+ * [ダミー] 議事録を検索する
+ * @param {string} query - 検索クエリ
+ */
+function searchMinutes(query) {
+  // 本来はスプレッドシートを検索
+  return [
+    { id: "008", name: "第8回定例打合せ", date: "2025/09/05", editor: "鈴木" }
+  ];
+}
